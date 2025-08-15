@@ -57,73 +57,165 @@ def setup_logging(output_dir: Path, log_level: str = "INFO") -> logging.Logger:
     return logging.getLogger(__name__)
 
 
-def create_mock_models_and_data(config: ExperimentConfig, logger: logging.Logger):
-    """
-    Create mock models and data for demonstration.
-    In a real scenario, you would load your trained models and actual datasets.
-    """
-    logger.info("Creating mock models and data for demonstration...")
+def load_trained_model(checkpoint_path: str, base_model_name: str, model_type: str, logger: logging.Logger):
+    """Load a trained model from checkpoint."""
+    import tempfile
+    from utils.svd_utils import extract_base_null_basis
     
-    # Create tokenizer (using a small model for demo)
-    tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-small")
+    logger.info(f"Loading {model_type} model from {checkpoint_path}")
+    
+    # Load checkpoint
+    checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    
+    # Load base model
+    base_model = AutoModelForCausalLM.from_pretrained(base_model_name)
+    
+    if model_type == 'nspo' or model_type == 'NSRPO':
+        # Extract null basis from base model
+        null_basis = extract_base_null_basis(base_model, epsilon_factor=1e-3)
+        
+        # Save null basis to temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pt')
+        null_basis_path = temp_file.name
+        torch.save(null_basis, null_basis_path)
+        temp_file.close()
+        
+        # Get model config from checkpoint if available
+        model_config = checkpoint.get('model_config', {})
+        loss_weights = model_config.get('loss_weights', {})
+        
+        # Create NSRPO model
+        model = create_nsrpo_model(
+            base_model=base_model,
+            null_basis_path=null_basis_path,
+            vocab_size=base_model.config.vocab_size,
+            hidden_size=base_model.config.hidden_size,
+            alpha_1=loss_weights.get('alpha_1', 0.1),
+            alpha_2=loss_weights.get('alpha_2', 0.1),
+            alpha_3=loss_weights.get('alpha_3', 0.05)
+        )
+        
+        # Clean up
+        os.unlink(null_basis_path)
+    else:
+        # Baseline model
+        model = base_model
+    
+    # Load model state
+    model.load_state_dict(checkpoint['model_state_dict'])
+    
+    return model
+
+
+def create_models_and_data(config: ExperimentConfig, args, logger: logging.Logger):
+    """
+    Create or load models and data for evaluation.
+    """
+    # Create tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
-    # Create mock models
     models = {}
     
-    # Mock NSRPO model
-    base_model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-small")
+    # Use dummy models if requested
+    if args.use_dummy_models:
+        logger.info("Creating dummy models for demonstration...")
+        
+        # Mock NSRPO model
+        base_model = AutoModelForCausalLM.from_pretrained(args.base_model)
+        
+        # Extract null basis from the base model
+        from utils.svd_utils import extract_base_null_basis
+        null_basis = extract_base_null_basis(base_model, epsilon_factor=1e-3)
+        
+        # Save null basis to a temporary file
+        import tempfile
+        import os
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pt')
+        null_basis_path = temp_file.name
+        torch.save(null_basis, null_basis_path)
+        temp_file.close()
+        
+        nsrpo_model = create_nsrpo_model(
+            base_model=base_model,
+            null_basis_path=null_basis_path,
+            vocab_size=tokenizer.vocab_size,
+            hidden_size=base_model.config.hidden_size,
+            alpha_1=config.model.alpha_1,
+            alpha_2=config.model.alpha_2,
+            alpha_3=config.model.alpha_3
+        )
+        
+        # Clean up temporary file
+        os.unlink(null_basis_path)
+        
+        models['NSRPO'] = nsrpo_model
+        models['GRPO_Baseline'] = AutoModelForCausalLM.from_pretrained(args.base_model)
+        
+    else:
+        # Load trained models
+        if args.nspo_model_path:
+            if os.path.exists(args.nspo_model_path):
+                models['NSRPO'] = load_trained_model(
+                    args.nspo_model_path, args.base_model, 'nspo', logger
+                )
+            else:
+                logger.warning(f"NSPO model path not found: {args.nspo_model_path}")
+        
+        if args.baseline_model_path:
+            if os.path.exists(args.baseline_model_path):
+                models['GRPO_Baseline'] = load_trained_model(
+                    args.baseline_model_path, args.base_model, 'baseline', logger
+                )
+            else:
+                logger.warning(f"Baseline model path not found: {args.baseline_model_path}")
+        
+        # If no models loaded, fall back to dummy models
+        if not models:
+            logger.warning("No trained models found, using dummy models")
+            args.use_dummy_models = True
+            return create_models_and_data(config, args, logger)
     
-    # Extract null basis from the base model
-    from utils.svd_utils import extract_base_null_basis
-    null_basis = extract_base_null_basis(base_model, epsilon_factor=1e-3)
-    
-    # Save null basis to a temporary file
-    import tempfile
-    import os
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pt')
-    null_basis_path = temp_file.name
-    torch.save(null_basis, null_basis_path)
-    temp_file.close()
-    
-    nsrpo_model = create_nsrpo_model(
-        base_model=base_model,
-        null_basis_path=null_basis_path,
-        vocab_size=tokenizer.vocab_size,
-        hidden_size=base_model.config.n_embd,
-        alpha_1=config.model.alpha_1,
-        alpha_2=config.model.alpha_2,
-        alpha_3=config.model.alpha_3
-    )
-    
-    # Clean up temporary file
-    os.unlink(null_basis_path)
-    
-    models['NSRPO'] = nsrpo_model
-    
-    # Mock baseline model
-    models['GRPO_Baseline'] = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-small")
-    
-    # Create mock evaluation data
-    dummy_data = create_dummy_data(500)
-    eval_dataloader = get_dataloader(
-        data=dummy_data,
-        tokenizer=tokenizer,
-        batch_size=8,
-        max_length=256,
-        shuffle=False
-    )
-    
-    # Create mock training data for dynamics analysis
-    train_dummy_data = create_dummy_data(200)
-    train_dataloader = get_dataloader(
-        data=train_dummy_data,
-        tokenizer=tokenizer,
-        batch_size=8,
-        max_length=256,
-        shuffle=True
-    )
+    # Create evaluation data
+    if args.eval_data_path.startswith('hf:'):
+        logger.info(f"Loading HuggingFace dataset: {args.eval_data_path}")
+        eval_dataloader = get_dataloader(
+            data_path=args.eval_data_path,
+            tokenizer=tokenizer,
+            batch_size=config.evaluation.eval_batch_size,
+            max_length=256,
+            shuffle=False,
+            num_samples=500  # Limit for evaluation
+        )
+        train_dataloader = get_dataloader(
+            data_path=args.eval_data_path,
+            tokenizer=tokenizer,
+            batch_size=config.evaluation.eval_batch_size,
+            max_length=256,
+            shuffle=True,
+            num_samples=200  # For dynamics analysis
+        )
+    else:
+        # Create dummy data
+        logger.info("Creating dummy evaluation data")
+        dummy_data = create_dummy_data(500)
+        eval_dataloader = get_dataloader(
+            data=dummy_data,
+            tokenizer=tokenizer,
+            batch_size=config.evaluation.eval_batch_size,
+            max_length=256,
+            shuffle=False
+        )
+        
+        train_dummy_data = create_dummy_data(200)
+        train_dataloader = get_dataloader(
+            data=train_dummy_data,
+            tokenizer=tokenizer,
+            batch_size=config.evaluation.eval_batch_size,
+            max_length=256,
+            shuffle=True
+        )
     
     return models, tokenizer, eval_dataloader, train_dataloader
 
@@ -500,6 +592,22 @@ def parse_arguments():
         help='Path to experiment configuration file'
     )
     parser.add_argument(
+        '--nspo-model-path', type=str, default=None,
+        help='Path to trained NSPO model checkpoint (e.g., outputs/nspo_model/model_final.pt)'
+    )
+    parser.add_argument(
+        '--baseline-model-path', type=str, default=None,
+        help='Path to trained baseline model checkpoint (e.g., outputs/grpo_baseline/model_final.pt)'
+    )
+    parser.add_argument(
+        '--base-model', type=str, default='gpt2',
+        help='Base model name or path (used when loading checkpoints)'
+    )
+    parser.add_argument(
+        '--eval-data-path', type=str, default='hf:wikitext-small',
+        help='Path to evaluation data or HuggingFace dataset (e.g., hf:wikitext-small)'
+    )
+    parser.add_argument(
         '--output-dir', type=str, default='./comprehensive_evaluation_results',
         help='Directory to save evaluation results'
     )
@@ -520,6 +628,10 @@ def parse_arguments():
         '--device', type=str, default='auto',
         choices=['auto', 'cuda', 'cpu'],
         help='Device to use for evaluation'
+    )
+    parser.add_argument(
+        '--use-dummy-models', action='store_true',
+        help='Use dummy models for testing (no trained models needed)'
     )
     
     return parser.parse_args()
@@ -570,9 +682,9 @@ def main():
         # Save configuration
         config.save(str(output_dir / "evaluation_config.yaml"))
         
-        # Create models and data (mock for demonstration)
-        models, tokenizer, eval_dataloader, train_dataloader = create_mock_models_and_data(
-            config, logger
+        # Create or load models and data
+        models, tokenizer, eval_dataloader, train_dataloader = create_models_and_data(
+            config, args, logger
         )
         
         # Run comprehensive evaluation
