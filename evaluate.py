@@ -527,9 +527,12 @@ def load_model_from_checkpoint(
     checkpoint_path: str,
     base_model_path: str,
     tokenizer_path: str,
-    device: str = 'auto'
+    device: str = 'auto',
+    model_type: str = 'auto'
 ) -> Tuple[Any, Any]:
     """Load model and tokenizer from checkpoint."""
+    logger = logging.getLogger(__name__)
+    
     # 토크나이저
     if base_model_path == "dummy" or tokenizer_path == "dummy":
         # Use GPT-2 tokenizer for dummy model
@@ -542,8 +545,17 @@ def load_model_from_checkpoint(
     # 체크포인트 로드
     checkpoint = torch.load(checkpoint_path, map_location='cpu')
 
-    # NSRPO 모델인지 판단
-    if 'model_config' in checkpoint and checkpoint['model_config'].get('model_type') == 'NSRPOModel':
+    # Determine model type
+    if model_type == 'auto':
+        # Auto-detect from checkpoint
+        if 'model_config' in checkpoint and checkpoint['model_config'].get('model_type') == 'NSRPOModel':
+            model_type = 'nspo'
+        else:
+            model_type = 'baseline'
+        logger.info(f"Auto-detected model type: {model_type}")
+    
+    # Load model based on type
+    if model_type in ['nspo', 'nsrpo']:
         # 베이스 모델
         if base_model_path == "dummy":
             base_model = create_dummy_model()
@@ -615,6 +627,11 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         '--model_path', type=str, required=True,
         help='Path to model checkpoint or HuggingFace model'
+    )
+    parser.add_argument(
+        '--model_type', type=str, default='auto',
+        choices=['auto', 'nspo', 'nsrpo', 'baseline', 'grpo'],
+        help='Type of model (auto-detect from checkpoint, nspo/nsrpo for NSRPO model, baseline/grpo for standard model)'
     )
     parser.add_argument(
         '--base_model_path', type=str, default=None,
@@ -793,7 +810,7 @@ def main():
             
             tokenizer_path = args.tokenizer_path or args.base_model_path
             model, tokenizer = load_model_from_checkpoint(
-                args.model_path, args.base_model_path, tokenizer_path, args.device
+                args.model_path, args.base_model_path, tokenizer_path, args.device, args.model_type
             )
         else:
             # HuggingFace model
