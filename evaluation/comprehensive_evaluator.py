@@ -289,14 +289,20 @@ class ComprehensiveEvaluator:
                 
                 logits = outputs.logits
                 if logits.size(1) > 1:
-                    shift_logits = logits[:, :-1, :].contiguous()
-                    shift_labels = targets[:, 1:].contiguous()
+                    # Ensure logits and targets have compatible shapes
+                    min_seq_len = min(logits.size(1) - 1, targets.size(1) - 1)
+                    shift_logits = logits[:, :min_seq_len, :].contiguous()
+                    shift_labels = targets[:, 1:min_seq_len+1].contiguous()
                     
                     # Create attention mask
                     if 'attention_mask' in batch:
-                        shift_attention = batch['attention_mask'][:, 1:].contiguous()
+                        shift_attention = batch['attention_mask'][:, 1:min_seq_len+1].contiguous()
                     else:
                         shift_attention = torch.ones_like(shift_labels)
+                    
+                    # Ensure shift_attention matches shift_labels size
+                    if shift_attention.size(1) != shift_labels.size(1):
+                        shift_attention = shift_attention[:, :shift_labels.size(1)]
                     
                     # Calculate loss per token
                     loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
