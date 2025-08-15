@@ -71,25 +71,44 @@ def load_trained_model(checkpoint_path: str, base_model_name: str, model_type: s
     base_model = AutoModelForCausalLM.from_pretrained(base_model_name)
     
     if model_type == 'nspo' or model_type == 'NSRPO':
-        # Extract null basis from base model
-        null_basis = extract_base_null_basis(base_model, epsilon_factor=1e-3)
+        # Check if null_basis exists in checkpoint
+        state_dict = checkpoint['model_state_dict']
         
-        # Save null basis to temporary file
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pt')
-        null_basis_path = temp_file.name
-        torch.save(null_basis, null_basis_path)
-        temp_file.close()
+        if 'null_decoder.null_basis' in state_dict:
+            # Use saved null_basis from checkpoint
+            saved_null_basis = state_dict['null_decoder.null_basis']
+            logger.info(f"Using null_basis from checkpoint with shape {saved_null_basis.shape}")
+            
+            # Save to temporary file for create_nsrpo_model
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pt')
+            null_basis_path = temp_file.name
+            torch.save(saved_null_basis, null_basis_path)
+            temp_file.close()
+        else:
+            # Extract null basis from base model as fallback
+            logger.warning("null_basis not found in checkpoint, extracting from base model")
+            null_basis = extract_base_null_basis(base_model, epsilon_factor=1e-3)
+            
+            # Save null basis to temporary file
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pt')
+            null_basis_path = temp_file.name
+            torch.save(null_basis, null_basis_path)
+            temp_file.close()
         
         # Get model config from checkpoint if available
         model_config = checkpoint.get('model_config', {})
         loss_weights = model_config.get('loss_weights', {})
+        null_decoder_info = model_config.get('null_decoder_info', {})
         
-        # Create NSRPO model
+        # Create NSRPO model with correct parameters
         model = create_nsrpo_model(
             base_model=base_model,
             null_basis_path=null_basis_path,
             vocab_size=base_model.config.vocab_size,
             hidden_size=base_model.config.hidden_size,
+            num_layers=null_decoder_info.get('num_layers', 3),
+            nhead=null_decoder_info.get('nhead', 8),
+            dropout=null_decoder_info.get('dropout', 0.1),
             alpha_1=loss_weights.get('alpha_1', 0.1),
             alpha_2=loss_weights.get('alpha_2', 0.1),
             alpha_3=loss_weights.get('alpha_3', 0.05)

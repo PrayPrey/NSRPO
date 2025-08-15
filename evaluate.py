@@ -550,23 +550,37 @@ def load_model_from_checkpoint(
         else:
             base_model = AutoModelForCausalLM.from_pretrained(base_model_path)
 
-        # (임시) null-basis 구성 — 학습 때 저장 안 했으므로 랜덤 직교 기저 사용
-        hidden_size = base_model.config.hidden_size
-        null_dim = 64  # 필요 시 조정
-        # torch.linalg.qr 권장 (torch.qr는 deprecated)
-        q, _ = torch.linalg.qr(torch.randn(hidden_size, null_dim))
-        null_basis = q[:, :null_dim].contiguous()
+        # checkpoint에서 null_basis 크기를 확인
+        state_dict = checkpoint['model_state_dict']
+        
+        # null_basis 차원 추출
+        if 'null_decoder.null_basis' in state_dict:
+            saved_null_basis = state_dict['null_decoder.null_basis']
+            hidden_size, null_dim = saved_null_basis.shape
+            logger.info(f"Found null_basis in checkpoint with shape {saved_null_basis.shape}")
+            
+            # 저장된 null_basis 사용
+            null_basis = saved_null_basis.contiguous()
+        else:
+            # Fallback: 랜덤 생성
+            hidden_size = base_model.config.hidden_size
+            null_dim = 64
+            logger.warning(f"null_basis not found in checkpoint, generating random basis with dim={null_dim}")
+            q, _ = torch.linalg.qr(torch.randn(hidden_size, null_dim))
+            null_basis = q[:, :null_dim].contiguous()
 
-        # NullDecoder 직접 생성 (경로 로드 X)
+        # NullDecoder 직접 생성
+        null_decoder_info = checkpoint['model_config'].get('null_decoder_info', {})
         null_decoder = NullDecoder(
             hidden_size=hidden_size,
             null_basis=null_basis,
             vocab_size=tokenizer.vocab_size,
-            # 필요하면 디코더 하이퍼파라미터 넘기기:
-            # num_layers=3, nhead=8, dropout=0.1, ...
+            num_layers=null_decoder_info.get('num_layers', 3),
+            nhead=null_decoder_info.get('nhead', 8),
+            dropout=null_decoder_info.get('dropout', 0.1),
         )
 
-        # NSRPOModel 조립 (손실 가중치만 체크포인트에서 사용)
+        # NSRPOModel 조립 (손실 가중치 체크포인트에서 사용)
         loss_weights = checkpoint['model_config'].get('loss_weights', {})
         model = NSRPOModel(
             base_model=base_model,
@@ -576,8 +590,8 @@ def load_model_from_checkpoint(
             alpha_3=loss_weights.get('alpha_3', 0.05),
         )
 
-        # state_dict 로드 (구성 차이 때문에 strict=False 권장)
-        model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+        # state_dict 로드
+        model.load_state_dict(checkpoint['model_state_dict'], strict=True)
     else:
         # 일반 CausalLM 체크포인트
         if base_model_path == "dummy":
