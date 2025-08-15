@@ -243,31 +243,38 @@ def run_ablation_study(
     )
     
     # Mock ablation results (in reality, this would train and evaluate models)
+    from evaluation.ablation_study import AblationResult
     mock_ablation_results = []
     
     # Mock results for alpha_1 ablation
     alpha_1_values = [0.0, 0.05, 0.1, 0.15, 0.2]
     for value in alpha_1_values:
-        mock_ablation_results.append({
-            'component_name': 'alpha_1_ce_loss',
-            'component_value': value,
-            'metrics': {
+        result = AblationResult(
+            component_name='alpha_1_ce_loss',
+            component_value=value,
+            metrics={
                 'accuracy': 0.75 + 0.08 * np.sin(value * 10) + np.random.normal(0, 0.01),
                 'perplexity': 3.0 - 0.5 * value + np.random.normal(0, 0.1)
-            }
-        })
+            },
+            training_time=np.random.uniform(100, 200),
+            model_size=None
+        )
+        mock_ablation_results.append(result)
     
     # Mock results for decoder layers ablation
     layer_values = [1, 2, 3, 4, 5]
     for value in layer_values:
-        mock_ablation_results.append({
-            'component_name': 'decoder_layers',
-            'component_value': value,
-            'metrics': {
+        result = AblationResult(
+            component_name='decoder_layers',
+            component_value=value,
+            metrics={
                 'accuracy': 0.78 + 0.05 * np.log(value) + np.random.normal(0, 0.01),
                 'perplexity': 2.8 - 0.1 * value + np.random.normal(0, 0.05)
-            }
-        })
+            },
+            training_time=np.random.uniform(100, 200),
+            model_size=None
+        )
+        mock_ablation_results.append(result)
     
     # Analyze ablation results
     analyses = ablation_framework._analyze_ablation_results(mock_ablation_results)
@@ -275,7 +282,7 @@ def run_ablation_study(
     
     # Save results
     ablation_results = {
-        'results': mock_ablation_results,
+        'results': [result.__dict__ for result in mock_ablation_results],
         'analyses': [analysis.__dict__ for analysis in analyses],
         'summary': summary
     }
