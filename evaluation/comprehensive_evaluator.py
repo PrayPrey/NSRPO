@@ -126,6 +126,11 @@ class ComprehensiveEvaluator:
                 
                 targets = batch.get('response_input_ids', batch['input_ids'])
                 
+                # Ensure targets have the same shape as input_ids
+                if targets.shape != batch['input_ids'].shape:
+                    # If targets are different, use input_ids as targets for consistency
+                    targets = batch['input_ids']
+                
                 # Shift for next-token prediction
                 if targets.size(1) > 1:
                     predictions = predictions[:, :-1].contiguous()
@@ -273,6 +278,11 @@ class ComprehensiveEvaluator:
                 
                 # Forward pass
                 targets = batch.get('response_input_ids', batch['input_ids'])
+                
+                # Ensure targets have the same shape as input_ids
+                if targets.shape != batch['input_ids'].shape:
+                    # If targets are different, use input_ids as targets for consistency
+                    targets = batch['input_ids']
                 
                 if isinstance(self.model, NSRPOModel):
                     outputs = self.model(
