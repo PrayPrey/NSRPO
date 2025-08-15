@@ -532,6 +532,7 @@ def main():
                 model=ModelConfig(
                     base_model_path="microsoft/DialoGPT-small",
                     use_null_decoder=True,
+                    extract_null_basis=True,  # Extract null basis automatically
                     alpha_1=0.1,
                     alpha_2=0.1,
                     alpha_3=0.05
