@@ -74,19 +74,31 @@ def create_mock_models_and_data(config: ExperimentConfig, logger: logging.Logger
     
     # Mock NSRPO model
     base_model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-small")
-    null_basis = torch.qr(torch.randn(base_model.config.n_embd, 32))[0]
+    
+    # Extract null basis from the base model
+    from utils.svd_utils import extract_base_null_basis
+    null_basis = extract_base_null_basis(base_model, epsilon_factor=1e-3)
+    
+    # Save null basis to a temporary file
+    import tempfile
+    import os
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pt')
+    null_basis_path = temp_file.name
+    torch.save(null_basis, null_basis_path)
+    temp_file.close()
     
     nsrpo_model = create_nsrpo_model(
         base_model=base_model,
-        null_basis_path=None,
+        null_basis_path=null_basis_path,
         vocab_size=tokenizer.vocab_size,
         hidden_size=base_model.config.n_embd,
         alpha_1=config.model.alpha_1,
         alpha_2=config.model.alpha_2,
         alpha_3=config.model.alpha_3
     )
-    nsrpo_model.null_decoder.null_projection.null_basis = null_basis
-    nsrpo_model.null_decoder.null_projection.null_basis_t = null_basis.T
+    
+    # Clean up temporary file
+    os.unlink(null_basis_path)
     
     models['NSRPO'] = nsrpo_model
     
