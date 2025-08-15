@@ -134,7 +134,17 @@ class ComprehensiveEvaluator:
                 
                 # Create attention mask
                 if 'attention_mask' in batch:
-                    attention_mask = batch['attention_mask'][:, 1:]
+                    attention_mask = batch['attention_mask']
+                    # Adjust mask size to match targets
+                    if attention_mask.size(1) > targets.size(1):
+                        attention_mask = attention_mask[:, :targets.size(1)]
+                    elif attention_mask.size(1) < targets.size(1):
+                        # Pad with ones if mask is shorter
+                        pad_size = targets.size(1) - attention_mask.size(1)
+                        attention_mask = torch.cat([
+                            attention_mask,
+                            torch.ones(attention_mask.size(0), pad_size, device=attention_mask.device)
+                        ], dim=1)
                 else:
                     attention_mask = torch.ones_like(targets)
                 
@@ -144,6 +154,13 @@ class ComprehensiveEvaluator:
                     seq_targets = targets[seq_idx]
                     seq_confs = confidences[seq_idx]
                     seq_mask = attention_mask[seq_idx].bool()
+                    
+                    # Ensure mask and tensors have same length
+                    min_len = min(len(seq_preds), len(seq_targets), len(seq_mask))
+                    seq_preds = seq_preds[:min_len]
+                    seq_targets = seq_targets[:min_len]
+                    seq_confs = seq_confs[:min_len]
+                    seq_mask = seq_mask[:min_len]
                     
                     # Extract valid tokens
                     valid_preds = seq_preds[seq_mask]
