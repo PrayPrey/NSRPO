@@ -1,0 +1,42 @@
+# NSRPO Project Requirements
+# Python 3.10+ compatible
+# Last updated: 2025-08-15
+
+# Core ML libraries - CPU optimized by default
+# For GPU support, install torch separately: pip install torch --index-url https://download.pytorch.org/whl/cu118
+torch>=2.0.0  # CPU version by default
+transformers>=4.30.0
+accelerate>=0.20.0
+
+# Data processing
+numpy>=1.21.0,<1.27.0
+scikit-learn>=1.0.0,<1.4.0
+pandas>=1.5.0,<2.2.0
+
+# Statistical analysis
+scipy>=1.9.0,<1.12.0
+statsmodels>=0.14.0,<0.15.0
+
+# Visualization
+matplotlib>=3.7.0,<3.9.0
+seaborn>=0.12.0,<0.14.0
+
+# Configuration management
+pyyaml>=6.0.0,<7.0.0
+# dataclasses is built-in for Python 3.7+, remove explicit dependency
+
+# Utilities
+tqdm>=4.65.0,<4.67.0
+tensorboard>=2.13.0,<2.16.0
+# pathlib is built-in for Python 3.4+, remove from requirements
+json5>=0.9.0,<1.0.0
+
+# Development (separated)
+pytest>=7.0.0,<8.0.0
+black>=23.0.0,<24.0.0
+isort>=5.12.0,<6.0.0
+
+# Optional: For advanced features (commented out by default)
+# jupyter>=1.0.0
+# plotly>=5.0.0  # For interactive plots
+# dash>=2.0.0    # For dashboard creation

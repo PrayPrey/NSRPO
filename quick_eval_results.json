@@ -1,0 +1,22 @@
+{
+  "accuracy": {
+    "token_accuracy": 0.0,
+    "sequence_accuracy": 0.0,
+    "total_tokens": 197,
+    "total_sequences": 8
+  },
+  "perplexity": {
+    "perplexity": 170590.765625,
+    "avg_loss": 12.047022726477646,
+    "loss_std": 0.0014591217041015625,
+    "total_tokens": 205
+  },
+  "training_efficiency": {
+    "variance": 8.876968848881006e-08,
+    "mean": 3.9664918460857734e-08,
+    "std": 3.2427185487904353e-06,
+    "num_batches": 2
+  },
+  "model_type": "NSRPOModel (dummy)",
+  "status": "success"
+}

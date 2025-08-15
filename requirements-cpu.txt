@@ -1,0 +1,22 @@
+# CPU-only Requirements for NSRPO
+# Install with: pip install -r requirements-cpu.txt
+# This installs CPU-only versions to save space and avoid CUDA dependencies
+
+# PyTorch CPU-only version
+--index-url https://download.pytorch.org/whl/cpu
+torch==2.1.2+cpu
+
+# Other dependencies (same as main requirements)
+transformers>=4.30.0,<4.40.0
+accelerate>=0.20.0,<0.30.0
+numpy>=1.21.0,<1.27.0
+scikit-learn>=1.0.0,<1.4.0
+pandas>=1.5.0,<2.2.0
+scipy>=1.9.0,<1.12.0
+statsmodels>=0.14.0,<0.15.0
+matplotlib>=3.7.0,<3.9.0
+seaborn>=0.12.0,<0.14.0
+pyyaml>=6.0.0,<7.0.0
+tqdm>=4.65.0,<4.67.0
+tensorboard>=2.13.0,<2.16.0
+json5>=0.9.0,<1.0.0

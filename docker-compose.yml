@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  nsrpo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nsrpo:latest
+    container_name: nsrpo-container
+    volumes:
+      # Mount data directory
+      - ./data:/app/data
+      # Mount outputs directory
+      - ./outputs:/app/outputs
+      # Mount checkpoints directory
+      - ./checkpoints:/app/checkpoints
+      # Mount cache for model downloads
+      - ~/.cache/huggingface:/app/.cache/huggingface
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TRANSFORMERS_CACHE=/app/.cache/huggingface
+      - HF_HOME=/app/.cache/huggingface
+    command: python train.py --fast --cpu_only
+    
+  nsrpo-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nsrpo:latest
+    container_name: nsrpo-test
+    volumes:
+      - ./test_results:/app/test_results
+    command: pytest tests/ -v --cov=. --cov-report=html:/app/test_results/coverage
+    
+  nsrpo-notebook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nsrpo:latest
+    container_name: nsrpo-notebook
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/app/notebooks
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+    command: jupyter notebook --ip=0.0.0.0 --no-browser --allow-root

@@ -1,0 +1,19 @@
+{
+  "accuracy": {
+    "token_accuracy": 0.0,
+    "sequence_accuracy": 0.0,
+    "total_tokens": 259,
+    "total_sequences": 10
+  },
+  "perplexity": {
+    "perplexity": 54097.14453125,
+    "avg_loss": 10.898536358100568,
+    "loss_std": "0.0815229",
+    "total_tokens": 259
+  },
+  "metadata": {
+    "model_type": "DummyGPT2",
+    "device": "cpu",
+    "evaluation_time": 1755277489.1495576
+  }
+}
