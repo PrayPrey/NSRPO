@@ -1,0 +1,61 @@
+data:
+  augmentation_prob: 0.1
+  cache_preprocessed: true
+  eval_data_path: null
+  num_dummy_samples: 500
+  preprocessing_num_workers: 4
+  shuffle_train: true
+  train_data_path: null
+  use_data_augmentation: false
+device: auto
+evaluation:
+  baseline_model_path: null
+  compute_accuracy: true
+  compute_kl_divergence: true
+  compute_perplexity: true
+  compute_training_efficiency: true
+  eval_batch_size: 8
+  generation_max_length: 100
+  generation_prompts:
+  - The future of AI is
+  - In the year 2030,
+  - Climate change will
+  generation_temperature: 1.0
+  generation_top_p: 0.9
+  include_generation: false
+  max_eval_batches: null
+experiment_description: Comprehensive evaluation pipeline demonstration
+experiment_name: comprehensive_evaluation_demo
+log_level: INFO
+model:
+  alpha_1: 0.1
+  alpha_2: 0.1
+  alpha_3: 0.05
+  base_model_path: microsoft/DialoGPT-small
+  decoder_dropout: 0.1
+  decoder_heads: 8
+  decoder_layers: 3
+  extract_null_basis: true
+  freeze_base_model: false
+  null_basis_path: null
+  use_null_decoder: true
+  use_reconstruction_metrics: true
+notes: ''
+output_dir: ./experiments
+seed: 42
+tags: []
+training:
+  batch_size: 8
+  dataloader_num_workers: 4
+  eval_every: 1
+  fp16: false
+  gradient_accumulation_steps: 1
+  learning_rate: 5.0e-05
+  log_every: 100
+  max_grad_norm: 1.0
+  max_length: 512
+  num_epochs: 3
+  save_every: 1
+  scheduler_type: linear
+  warmup_ratio: 0.1
+  weight_decay: 0.01

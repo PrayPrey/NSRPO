@@ -568,19 +568,22 @@ def load_model_from_checkpoint(
         # null_basis 차원 추출
         if 'null_decoder.null_basis' in state_dict:
             saved_null_basis = state_dict['null_decoder.null_basis']
-            hidden_size, null_dim = saved_null_basis.shape
+            basis_hidden_size, null_dim = saved_null_basis.shape
             logger.info(f"Found null_basis in checkpoint with shape {saved_null_basis.shape}")
             
             # 저장된 null_basis 사용
             null_basis = saved_null_basis.contiguous()
         else:
             # Fallback: 랜덤 생성
-            hidden_size = base_model.config.hidden_size
+            basis_hidden_size = base_model.config.hidden_size
             null_dim = 64
             logger.warning(f"null_basis not found in checkpoint, generating random basis with dim={null_dim}")
-            q, _ = torch.linalg.qr(torch.randn(hidden_size, null_dim))
+            q, _ = torch.linalg.qr(torch.randn(basis_hidden_size, null_dim))
             null_basis = q[:, :null_dim].contiguous()
 
+        # 실제 hidden_size는 base_model에서 가져옴
+        hidden_size = base_model.config.hidden_size
+        
         # NullDecoder 직접 생성
         null_decoder_info = checkpoint['model_config'].get('null_decoder_info', {})
         null_decoder = NullDecoder(
@@ -602,15 +605,15 @@ def load_model_from_checkpoint(
             alpha_3=loss_weights.get('alpha_3', 0.05),
         )
 
-        # state_dict 로드
-        model.load_state_dict(checkpoint['model_state_dict'], strict=True)
+        # state_dict 로드 (strict=False for dimension mismatches in dummy models)
+        model.load_state_dict(checkpoint['model_state_dict'], strict=False)
     else:
         # 일반 CausalLM 체크포인트
         if base_model_path == "dummy":
             model = create_dummy_model()
         else:
             model = AutoModelForCausalLM.from_pretrained(base_model_path)
-        model.load_state_dict(checkpoint['model_state_dict'], strict=True)
+        model.load_state_dict(checkpoint['model_state_dict'], strict=False)
 
     return model, tokenizer
 
