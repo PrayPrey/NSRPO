@@ -711,6 +711,14 @@ def parse_arguments() -> argparse.Namespace:
         '--cpu_only', action='store_true',
         help='Force CPU-only execution'
     )
+    parser.add_argument(
+        '--visualize', action='store_true',
+        help='Generate visualization plots after evaluation'
+    )
+    parser.add_argument(
+        '--plot_dir', type=str, default='./evaluation_plots',
+        help='Directory to save visualization plots'
+    )
     
     args = parser.parse_args()
     
@@ -890,6 +898,17 @@ def main():
             print(f"Gradient Variance: {eff['variance']:.6f}")
         
         logger.info("Evaluation completed successfully")
+        
+        # Generate visualization if requested
+        if args.visualize:
+            logger.info(f"Generating visualization plots to {args.plot_dir}")
+            try:
+                from visualize_results import create_comparison_plots
+                create_comparison_plots(results, output_dir=args.plot_dir)
+                logger.info(f"Visualization plots saved to {args.plot_dir}")
+            except Exception as viz_e:
+                logger.warning(f"Visualization failed: {viz_e}")
+                logger.info("You can manually run: python visualize_results.py --nspo-results <path>")
         
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")

@@ -1,0 +1,35 @@
+{
+  "accuracy": {
+    "token_accuracy": 0.723,
+    "sequence_accuracy": 0.412
+  },
+  "perplexity": {
+    "perplexity": 45.32,
+    "avg_loss": 3.814,
+    "loss_std": 0.245
+  },
+  "training_efficiency": {
+    "variance": 3.27e-07,
+    "mean": 0.00012,
+    "std": 1.23e-05,
+    "num_batches": 10
+  },
+  "null_space_info": {
+    "model_type": "NSRPOModel",
+    "loss_weights": {
+      "alpha_1": 0.1,
+      "alpha_2": 0.1,
+      "alpha_3": 0.05
+    },
+    "null_decoder_info": {
+      "null_dim": 19,
+      "hidden_size": 768,
+      "compression_ratio": 0.024739583333333332,
+      "null_basis_shape": [
+        192,
+        19
+      ],
+      "shared_lm_head": true
+    }
+  }
+}

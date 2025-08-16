@@ -1,0 +1,11 @@
+{
+  "accuracy": {
+    "token_accuracy": 0.651,
+    "sequence_accuracy": 0.328
+  },
+  "perplexity": {
+    "perplexity": 67.89,
+    "avg_loss": 4.218,
+    "loss_std": 0.312
+  }
+}
