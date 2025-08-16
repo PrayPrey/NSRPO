@@ -420,11 +420,19 @@ def create_nsrpo_model(
     # Load null basis
     null_basis = torch.load(null_basis_path, map_location='cpu')
     
-    # Create null decoder
+    # Get lm_head from base model if available
+    lm_head = None
+    if hasattr(base_model, 'lm_head'):
+        lm_head = base_model.lm_head
+    elif hasattr(base_model, 'get_output_embeddings'):
+        lm_head = base_model.get_output_embeddings()
+    
+    # Create null decoder with shared lm_head
     null_decoder = NullDecoder(
         hidden_size=hidden_size,
         null_basis=null_basis,
         vocab_size=vocab_size,
+        lm_head=lm_head,
         **{k: v for k, v in kwargs.items() 
            if k in ['num_layers', 'nhead', 'dropout', 'dim_feedforward', 'activation']}
     )

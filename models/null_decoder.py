@@ -28,7 +28,8 @@ class NullDecoder(nn.Module):
         nhead: int = 8,
         dropout: float = 0.1,
         dim_feedforward: int = 2048,
-        activation: str = "gelu"
+        activation: str = "gelu",
+        lm_head: Optional[nn.Module] = None
     ):
         """
         Initialize the Null-Space Decoder.
@@ -42,6 +43,7 @@ class NullDecoder(nn.Module):
             dropout: Dropout probability
             dim_feedforward: Dimension of feedforward network
             activation: Activation function for transformer layers
+            lm_head: Optional shared language model head from base model
         """
         super().__init__()
         
@@ -84,8 +86,15 @@ class NullDecoder(nn.Module):
         )
         self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers)
         
-        # Output projection to vocabulary
-        self.output_projection = nn.Linear(hidden_size, vocab_size)
+        # Output projection to vocabulary (use shared lm_head if provided)
+        # Don't register as a submodule to avoid double gradient updates
+        if lm_head is not None:
+            # Store reference without registering as parameter
+            self._lm_head = lm_head
+            self.shared_lm_head = True
+        else:
+            self.output_projection = nn.Linear(hidden_size, vocab_size)
+            self.shared_lm_head = False
         
         # Layer normalization for stability
         self.layer_norm = nn.LayerNorm(hidden_size)
@@ -95,11 +104,16 @@ class NullDecoder(nn.Module):
     
     def _init_weights(self):
         """Initialize model weights."""
-        # Initialize linear layers with Xavier uniform
-        for module in [self.input_projection, self.output_projection]:
-            nn.init.xavier_uniform_(module.weight)
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
+        # Initialize input projection
+        nn.init.xavier_uniform_(self.input_projection.weight)
+        if self.input_projection.bias is not None:
+            nn.init.zeros_(self.input_projection.bias)
+        
+        # Initialize output projection only if not shared
+        if not self.shared_lm_head:
+            nn.init.xavier_uniform_(self.output_projection.weight)
+            if self.output_projection.bias is not None:
+                nn.init.zeros_(self.output_projection.bias)
         
         # Initialize transformer weights (they have their own initialization)
         for layer in self.transformer_decoder.layers:
@@ -174,7 +188,10 @@ class NullDecoder(nn.Module):
         )
             
         # Project to vocabulary
-        logits = self.output_projection(decoder_output)
+        if self.shared_lm_head:
+            logits = self._lm_head(decoder_output)
+        else:
+            logits = self.output_projection(decoder_output)
         
         # null-space에서 복원한 뒤 basis_hidden -> hidden_size로 역정렬
         reconstructed_basis = self.null_projection.project_from_null(null_projection)
@@ -203,7 +220,8 @@ class NullDecoder(nn.Module):
             'null_dim': self.null_dim,
             'hidden_size': self.hidden_size,
             'compression_ratio': self.null_dim / self.hidden_size,
-            'null_basis_shape': self.null_basis.shape
+            'null_basis_shape': self.null_basis.shape,
+            'shared_lm_head': self.shared_lm_head
         }
 
 
